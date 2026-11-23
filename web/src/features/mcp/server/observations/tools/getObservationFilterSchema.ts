@@ -34,13 +34,16 @@ export const OBSERVATION_MCP_FTS_COLUMNS = new Set([
 
 export const OBSERVATION_MCP_INDEXED_IO_COLUMNS = new Set(["input", "output"]);
 
+/** Columns that also take numeric comparisons on a key, as `numberObject`. */
+export const OBSERVATION_MCP_NUMERIC_KEY_COLUMNS = new Set(["metadata"]);
+
 export const [
   getObservationFilterSchemaTool,
   handleGetObservationFilterSchema,
 ] = defineTool({
   name: "getObservationFilterSchema",
   description:
-    "Show which observation fields can be used in listObservations filters, including the supported operators for each field.",
+    "Show which observation fields can be used in listObservations filters, including the supported operators for each field. A field with additionalTypes also accepts those filter types; pass type explicitly to use one.",
   action: "traces:read",
   baseSchema: EmptyInputSchema,
   inputSchema: EmptyInputSchema,
@@ -77,6 +80,16 @@ export const [
                 column.type === "stringObject" ||
                 column.type === "numberObject" ||
                 column.type === "booleanObject",
+              ...(OBSERVATION_MCP_NUMERIC_KEY_COLUMNS.has(publicColumn)
+                ? {
+                    additionalTypes: [
+                      {
+                        type: "numberObject",
+                        operators: [...filterOperators.numberObject],
+                      },
+                    ],
+                  }
+                : {}),
             },
           ];
         }),

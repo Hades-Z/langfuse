@@ -1367,8 +1367,12 @@ describe("MCP Read Tools", () => {
           type: "stringObject",
           operators: expect.arrayContaining(["matches"]),
           requiresKey: true,
+          additionalTypes: [
+            { type: "numberObject", operators: ["=", ">", "<", ">=", "<="] },
+          ],
         }),
       );
+      expect(result.columns.input).not.toHaveProperty("additionalTypes");
       expect(result.columns.input.operators).toEqual(["=", "matches"]);
       expect(result.columns.output.operators).toEqual(["=", "matches"]);
       expect(result.columns.version.operators).not.toContain("matches");
@@ -1691,6 +1695,56 @@ describe("MCP Read Tools", () => {
             observationId: matchingObservation.id,
           }),
         },
+      ]);
+    });
+
+    it("should filter by numeric metadata advanced filters", async () => {
+      const { context, projectId } = await createMcpTestSetup();
+      const traceId = randomUUID();
+      const startTime = new Date();
+      const matchingObservation = createObservationEvent({
+        projectId,
+        traceId,
+        startTime,
+        metadata: { retries: "10" },
+      });
+      // "10" > "9" fails as a string comparison, so only a numeric one matches.
+      const nonMatchingObservation = createObservationEvent({
+        projectId,
+        traceId,
+        startTime,
+        metadata: { retries: "9" },
+      });
+
+      await createEventsCh([matchingObservation, nonMatchingObservation]);
+
+      const result = (await handleListObservations(
+        {
+          fromStartTime: new Date(startTime.getTime() - 1000).toISOString(),
+          toStartTime: new Date(startTime.getTime() + 1000).toISOString(),
+          filter: [
+            {
+              type: "stringOptions",
+              column: "id",
+              operator: "any of",
+              value: [matchingObservation.id, nonMatchingObservation.id],
+            },
+            {
+              type: "numberObject",
+              column: "metadata",
+              key: "retries",
+              operator: ">",
+              value: 9,
+            },
+          ],
+          fields: ["id"],
+          limit: 100,
+        },
+        context,
+      )) as { data: Array<{ id: string }> };
+
+      expect(result.data.map((observation) => observation.id)).toEqual([
+        matchingObservation.id,
       ]);
     });
 
