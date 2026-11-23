@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  eventsPredicateSource,
   eventsTableCols,
   filterOperators,
   FTS_MATCH_OPERATOR,
@@ -34,8 +35,26 @@ export const OBSERVATION_MCP_FTS_COLUMNS = new Set([
 
 export const OBSERVATION_MCP_INDEXED_IO_COLUMNS = new Set(["input", "output"]);
 
-/** Columns that also take numeric comparisons on a key, as `numberObject`. */
-export const OBSERVATION_MCP_NUMERIC_KEY_COLUMNS = new Set(["metadata"]);
+/**
+ * Columns that also take numeric comparisons on a key (`numberObject`), with
+ * those operators, as the events predicate source declares them.
+ */
+export const OBSERVATION_MCP_NUMERIC_KEY_COLUMNS: ReadonlyMap<
+  string,
+  readonly string[]
+> = new Map(
+  OBSERVATION_MCP_FILTER_COLUMNS.flatMap((publicColumn) => {
+    const id =
+      OBSERVATION_MCP_FILTER_CONFIG_COLUMN_OVERRIDES[publicColumn] ??
+      publicColumn;
+    const field = eventsPredicateSource.fields.find((f) => f.id === id);
+    const operators =
+      field?.type === "numberObject"
+        ? undefined
+        : field?.operators.numberObject;
+    return operators ? [[publicColumn, operators] as const] : [];
+  }),
+);
 
 export const [
   getObservationFilterSchemaTool,
@@ -61,6 +80,8 @@ export const [
         .filter((column) => column.id in publicFilterColumnsByConfigColumn)
         .map((column) => {
           const publicColumn = publicFilterColumnsByConfigColumn[column.id];
+          const numericKeyOperators =
+            OBSERVATION_MCP_NUMERIC_KEY_COLUMNS.get(publicColumn);
           const operators = OBSERVATION_MCP_INDEXED_IO_COLUMNS.has(publicColumn)
             ? ["=", FTS_MATCH_OPERATOR]
             : [
@@ -80,12 +101,12 @@ export const [
                 column.type === "stringObject" ||
                 column.type === "numberObject" ||
                 column.type === "booleanObject",
-              ...(OBSERVATION_MCP_NUMERIC_KEY_COLUMNS.has(publicColumn)
+              ...(numericKeyOperators
                 ? {
                     additionalTypes: [
                       {
                         type: "numberObject",
-                        operators: [...filterOperators.numberObject],
+                        operators: [...numericKeyOperators],
                       },
                     ],
                   }
