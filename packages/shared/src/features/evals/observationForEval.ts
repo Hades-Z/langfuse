@@ -74,6 +74,43 @@ export const observationForEvalSchema = z.object({
 export type ObservationForEval = z.infer<typeof observationForEvalSchema>;
 
 /**
+ * Fields that evaluation rule filters and job identifiers read. Payloads are
+ * excluded, so rules can be matched before an observation is loaded in full.
+ */
+export const observationEvalFilterFieldsSchema = observationForEvalSchema.pick({
+  span_id: true,
+  trace_id: true,
+  project_id: true,
+  parent_span_id: true,
+  type: true,
+  name: true,
+  environment: true,
+  version: true,
+  level: true,
+  status_message: true,
+  trace_name: true,
+  user_id: true,
+  session_id: true,
+  is_app_root: true,
+  tags: true,
+  release: true,
+  provided_model_name: true,
+  prompt_name: true,
+  prompt_version: true,
+  tool_call_names: true,
+  tool_call_count: true,
+  experiment_id: true,
+  experiment_name: true,
+  experiment_dataset_id: true,
+  experiment_item_root_span_id: true,
+  metadata: true,
+});
+
+export type ObservationEvalFilterFields = z.infer<
+  typeof observationEvalFilterFieldsSchema
+>;
+
+/**
  * Self-contained tool call shape handed to evaluators. Rebuilt from the
  * ClickHouse storage layout, which keeps names in a parallel array
  * (`tool_call_names`) so ClickHouse can filter without JSON parsing.
@@ -175,6 +212,22 @@ export function convertEventRecordToObservationForEval(
     metadata,
     experiment_item_metadata: experimentItemMetadata,
     tool_call_count: toolCallNames.length,
+  });
+}
+
+export function convertEventRecordToObservationEvalFilterFields(
+  record: Pick<
+    EventRecordBaseType,
+    "metadata_names" | "metadata_values" | "tool_call_names"
+  >,
+): ObservationEvalFilterFields {
+  return observationEvalFilterFieldsSchema.parse({
+    ...record,
+    metadata: metadataArraysToRecord(
+      record.metadata_names,
+      record.metadata_values,
+    ),
+    tool_call_count: (record.tool_call_names ?? []).length,
   });
 }
 

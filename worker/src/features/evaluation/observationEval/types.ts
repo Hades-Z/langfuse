@@ -11,6 +11,8 @@ import { type EvalExecutionMode } from "@langfuse/shared";
 import type {
   EvalTargetObject,
   FilterState,
+  ObservationEvalFilterFields,
+  ObservationForEval,
   ObservationVariableMapping,
   TopicsTargetObject,
 } from "@langfuse/shared";
@@ -22,6 +24,14 @@ import type {
  * @see packages/shared/src/features/evals/observationForEval.ts for schema definition
  */
 export { type ObservationForEval } from "@langfuse/shared";
+
+/**
+ * Filter fields of an observation whose full form loads on demand, so payloads
+ * are read only for observations that a rule selects.
+ */
+export type LazyObservationForEval = ObservationEvalFilterFields & {
+  loadSnapshot: () => ObservationForEval;
+};
 
 /**
  * Observation eval job configuration.

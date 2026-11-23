@@ -4,6 +4,7 @@ import {
   JobExecutionStatus,
   type FilterState,
   type EvalExecutionMode,
+  type ObservationEvalFilterFields,
   canRunEvalRule,
   coerceLegacyEmptyMetadataFilters,
   mapEventEvalFilterColumnIdToField,
@@ -11,6 +12,7 @@ import {
   observationVariableMappingList,
 } from "@langfuse/shared";
 import {
+  type LazyObservationForEval,
   type ObservationForEval,
   type ObservationEvalAssignment,
   type ObservationEvalRule,
@@ -30,7 +32,7 @@ import { createW3CTraceId } from "../../utils/utilities";
 import { isInternalEvalEnvironment } from "../isEvalTargetEnvironmentAllowed";
 
 interface ScheduleObservationEvalsParams {
-  observation: ObservationForEval;
+  observation: ObservationForEval | LazyObservationForEval;
   configs: ObservationEvalRule[];
   schedulerDeps: ObservationEvalSchedulerDeps;
   executionMode?: EvalExecutionMode;
@@ -175,7 +177,8 @@ export async function scheduleObservationEvals(
     projectId: observation.project_id,
     traceId: observation.trace_id,
     observationId: observation.span_id,
-    data: observation,
+    data:
+      "loadSnapshot" in observation ? observation.loadSnapshot() : observation,
   });
 
   const assignmentAttempts = matchingConfigs.flatMap(
@@ -229,7 +232,7 @@ export async function scheduleObservationEvals(
 }
 
 interface ProcessConfigParams {
-  observation: ObservationForEval;
+  observation: Pick<ObservationForEval, "project_id" | "trace_id" | "span_id">;
   matchingConfig: ObservationEvalRule;
   assignment: ScheduledObservationEvalAssignment;
   observationS3Path: string;
@@ -391,7 +394,7 @@ function getExecutableAssignments(
  * Returns true if observation matches all filter conditions (or filter is empty).
  */
 function evaluateFilter(
-  observation: ObservationForEval,
+  observation: ObservationEvalFilterFields,
   config: ObservationEvalRule,
 ): boolean {
   const filterConditions = coerceLegacyEmptyMetadataFilters(
@@ -405,7 +408,7 @@ function evaluateFilter(
     filterConditions.length === 0;
 
   // Map filter column IDs to observation field values for in-memory filtering
-  const fieldMapper = (obs: ObservationForEval, column: string) =>
+  const fieldMapper = (obs: ObservationEvalFilterFields, column: string) =>
     mapEventEvalFilterColumnIdToField(obs, column);
 
   // Use InMemoryFilterService to evaluate filter if there are conditions

@@ -10,7 +10,10 @@ import {
   isObservationAllowedForQueuedObservationEvals,
   scheduleObservationEvals,
 } from "./observationEval/scheduleObservationEvals";
-import type { ObservationForEval } from "./observationEval/types";
+import type {
+  LazyObservationForEval,
+  ObservationForEval,
+} from "./observationEval/types";
 import type { EvalRules } from "./fetchEvalRules";
 import { scheduleTraceTranscriptEvals } from "./traceTranscriptEval/scheduleTraceTranscriptEvals";
 import { prepareTraceDispatchRules } from "../traceDispatch/traceDispatchRules";
@@ -88,8 +91,8 @@ export async function scheduleEvals({
   schedulerDeps,
   buildFailureContext,
 }: {
-  /** Convert the payload only when an evaluation rule needs it. */
-  parseObservation: () => ObservationForEval;
+  /** Convert the observation only when an evaluation rule needs it. */
+  parseObservation: () => ObservationForEval | LazyObservationForEval;
   environment: string;
   /** Present only for sampled direct event writes. */
   traceActivity?: Omit<TraceSpanActivity, "ruleIds" | "serializedEventBytes">;

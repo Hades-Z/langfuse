@@ -12,6 +12,7 @@ import {
   EvalTemplateType,
   JobConfigState,
   JobExecutionStatus,
+  observationEvalFilterFieldsSchema,
 } from "@langfuse/shared";
 import { createW3CTraceId } from "../../../utils/utilities";
 
@@ -247,6 +248,44 @@ describe("scheduleObservationEvals", () => {
       });
 
       expect(schedulerDeps.uploadObservationToS3).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("lazy snapshot", () => {
+    it("should load the snapshot only for an observation that a rule selects", async () => {
+      const schedulerDeps = createMockSchedulerDeps();
+      const snapshot = createMockObservation();
+      const loadSnapshot = vi.fn(() => snapshot);
+      const filterFields = observationEvalFilterFieldsSchema.parse(snapshot);
+      const configs = [
+        createMockConfig({
+          filter: [
+            {
+              column: "type",
+              type: "stringOptions",
+              operator: "any of",
+              value: ["GENERATION"],
+            },
+          ],
+        }),
+      ];
+
+      await scheduleObservationEvals({
+        observation: { ...filterFields, type: "SPAN", loadSnapshot },
+        configs,
+        schedulerDeps,
+      });
+      expect(loadSnapshot).not.toHaveBeenCalled();
+
+      await scheduleObservationEvals({
+        observation: { ...filterFields, loadSnapshot },
+        configs,
+        schedulerDeps,
+      });
+      expect(loadSnapshot).toHaveBeenCalledTimes(1);
+      expect(schedulerDeps.uploadObservationToS3).toHaveBeenCalledWith(
+        expect.objectContaining({ data: snapshot }),
+      );
     });
   });
 
