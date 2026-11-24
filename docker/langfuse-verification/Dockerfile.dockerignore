@@ -1,0 +1,30 @@
+# Build context for the verification image (docker/langfuse-verification).
+#
+# BuildKit reads this file INSTEAD of the repository-root `.dockerignore`, so
+# it repeats the entries the build still needs. `.env` files are excluded here:
+# the Dockerfile only copies the committed `.env.*.example` files, and keeping
+# the developer's real settings out of the context keeps them off a remote
+# builder as well.
+node_modules
+**/node_modules
+.pnpm-store
+**/.pnpm-store
+.turbo
+**/.turbo
+**/.next
+**/dist
+**/*.tsbuildinfo
+.git
+.env
+web/.env
+worker/.env
+.env.*
+!.env.dev.example
+!.env.test.example
+!.env.dev-azure.example
+!.env.dev-oci.example
+!.env.dev-redis-cluster.example
+!.env.prod.example
+ai-gateway/target
+packages/native/target
+packages/native/*.node
