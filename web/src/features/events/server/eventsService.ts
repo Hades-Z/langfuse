@@ -28,6 +28,7 @@ import {
   type ClickhouseQueryOpts,
 } from "@langfuse/shared/src/server";
 import { aggregateScores } from "@/src/features/scores/lib/aggregateScores";
+import { getTraceResultStatus } from "@/src/features/traces/lib/traceResultStatus";
 type TimeFilter = z.infer<typeof timeFilter>;
 
 const TRACE_SCORE_SCOPE_FILTER: FilterCondition[] = [
@@ -362,7 +363,7 @@ async function getEventListPage(
           projectId: params.projectId,
           traceIds,
           timestamp: minTraceTimestamp,
-          excludeMetadata: true,
+          level: "trace",
           includeHasMetadata: true,
         })
       : Promise.resolve([]),
@@ -427,6 +428,11 @@ async function getEventListPage(
       scores: aggregateScores([...observationScores, ...traceScores]),
       // Trace-only aggregate, retained for callers that need the breakdown.
       traceScores: aggregateScores(traceScores),
+      // Only the row that stands for the case shows its result; child rows
+      // keep their own level.
+      caseResultStatus: observation.isRootObservation
+        ? getTraceResultStatus(traceScores)
+        : undefined,
     };
   });
 

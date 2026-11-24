@@ -36,6 +36,8 @@ import { createInnerTRPCContext } from "@/src/server/api/trpc";
 import {
   createEvent,
   createEventsCh,
+  createScoresCh,
+  createTraceScore,
   getTraceByIdFromEventsTable,
   getTraceByIdFromTracesTable,
 } from "@langfuse/shared/src/server";
@@ -76,6 +78,53 @@ maybe("traces trpc (events_only write mode)", () => {
   // silently fall back to reading the (empty) legacy table.
   it("forces events_only write mode", () => {
     expect(env.LANGFUSE_MIGRATION_V4_WRITE_MODE).toBe("events_only");
+  });
+
+  it("shows the case result on the root row and nowhere else", async () => {
+    const traceId = randomUUID();
+    const root = createEvent({
+      trace_id: traceId,
+      project_id: projectId,
+      parent_span_id: "",
+      is_app_root: true,
+    });
+    const child = createEvent({
+      trace_id: traceId,
+      project_id: projectId,
+      parent_span_id: root.span_id,
+    });
+    await createEventsCh([root, child]);
+    await createScoresCh([
+      createTraceScore({
+        trace_id: traceId,
+        project_id: projectId,
+        name: "resolved",
+        data_type: "BOOLEAN",
+        value: 0,
+        string_value: "False",
+        metadata: { benchmark: JSON.stringify("terminalbench") },
+      }),
+    ]);
+
+    await waitForExpect(async () => {
+      const { observations } = await caller.events.all({
+        projectId,
+        filter: [
+          { column: "traceId", type: "string", operator: "=", value: traceId },
+        ],
+        searchQuery: null,
+        searchType: ["id"],
+        orderBy: null,
+        page: 1,
+        limit: 10,
+      });
+      expect(
+        observations.find(({ id }) => id === root.span_id)?.caseResultStatus,
+      ).toBe("False");
+      const childRow = observations.find(({ id }) => id === child.span_id);
+      expect(childRow).toBeDefined();
+      expect(childRow?.caseResultStatus).toBeUndefined();
+    });
   });
 
   it("loads a cross-midnight trace from a clicked observation timestamp", async () => {

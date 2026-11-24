@@ -58,6 +58,8 @@ import {
 } from "@langfuse/shared";
 import { formatIntervalSeconds } from "@/src/utils/dates";
 import { Skeleton } from "@/src/components/ui/skeleton";
+import { Tag } from "@/src/components/design-system/Tag/Tag";
+import { ScoreTag } from "@/src/components/ScoreTag";
 import { createTagTableColumn } from "@/src/components/design-system/table/columns/createTagTableColumn";
 import { createDateTableColumn } from "@/src/components/design-system/table/columns/createDateTableColumn";
 import { createDurationTableColumn } from "@/src/components/design-system/table/columns/createDurationTableColumn";
@@ -216,6 +218,7 @@ export type EventsTableRow = {
   version?: string;
   release?: string;
   level?: ObservationLevelType;
+  caseResultStatus?: string;
   statusMessage?: string;
 
   // User context
@@ -1427,15 +1430,26 @@ export default function ObservationsEventsTable({
       header: getEventsColumnName("level"),
       size: 100,
       headerTooltip: {
-        description:
-          "You can differentiate the importance of observations with the level attribute to control the verbosity of your traces and highlight errors and warnings.",
+        description: enableAppRootDefault
+          ? "Shows the case result on the root row when the trace has exactly one. Otherwise it shows the observation level. Sorting and filtering use the observation level."
+          : "You can differentiate the importance of observations with the level attribute to control the verbosity of your traces and highlight errors and warnings.",
         href: "https://langfuse.com/docs/observability/features/log-levels",
       },
       enableHiding: true,
       enableSorting,
       loadingCell: <Skeleton className="h-5 w-16 shrink-0 rounded-sm" />,
-      renderCell: (level) =>
-        level ? <ObservationLevelTag level={level} /> : <EmptyValue />,
+      renderCell: (level, { row }) => {
+        const result = row.original.caseResultStatus;
+        if (enableAppRootDefault && result !== undefined) {
+          return (
+            <span className="inline-flex items-center gap-1">
+              <ScoreTag level="trace" compact />
+              <Tag text={result} />
+            </span>
+          );
+        }
+        return level ? <ObservationLevelTag level={level} /> : <EmptyValue />;
+      },
     }),
     createIOTableColumn<EventsTableRow>({
       accessorKey: "statusMessage",
@@ -1936,6 +1950,7 @@ export default function ObservationsEventsTable({
               providedModelName: observation.model ?? "",
               modelId: observation.internalModelId ?? undefined,
               level: observation.level,
+              caseResultStatus: observation.caseResultStatus,
               statusMessage: observation.statusMessage ?? undefined,
               usage: {
                 inputUsage: observation.inputUsage,

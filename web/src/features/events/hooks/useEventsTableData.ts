@@ -24,6 +24,7 @@ import {
 type FullEventsObservation = FullEventsObservations[number] & {
   scores?: ScoreAggregate;
   traceScores?: ScoreAggregate;
+  caseResultStatus?: string;
 };
 
 type UseEventsTableDataParams = {

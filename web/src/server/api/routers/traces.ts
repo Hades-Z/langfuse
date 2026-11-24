@@ -8,6 +8,7 @@ import {
 import { auditLog } from "@/src/features/audit-logs/auditLog";
 import { throwIfNoProjectAccess } from "@/src/features/rbac/utils/checkProjectAccess";
 import { aggregateScores } from "@/src/features/scores/lib/aggregateScores";
+import { getTraceResultStatus } from "@/src/features/traces/lib/traceResultStatus";
 import {
   applyCommentFilters,
   getTracesTable,
@@ -272,7 +273,7 @@ export const traceRouter = createTRPCRouter({
       const traceScores = await getScoresForTraces({
         projectId: ctx.session.projectId,
         traceIds: res.map((r) => r.id),
-        excludeMetadata: true,
+        level: "trace",
         includeHasMetadata: true,
       });
 
@@ -284,12 +285,14 @@ export const traceRouter = createTRPCRouter({
           logger.warn("Invalid score omitted from response", { error }),
       });
 
-      return res.map((row) => ({
-        ...row,
-        scores: aggregateScores(
-          validatedScores.filter((s) => s.traceId === row.id),
-        ),
-      }));
+      return res.map((row) => {
+        const scores = validatedScores.filter((s) => s.traceId === row.id);
+        return {
+          ...row,
+          scores: aggregateScores(scores),
+          caseResultStatus: getTraceResultStatus(scores),
+        };
+      });
     }),
   filterOptions: protectedProjectProcedure
     .input(

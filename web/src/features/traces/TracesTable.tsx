@@ -12,7 +12,10 @@ import { createDateTableColumn } from "@/src/components/design-system/table/colu
 import { createDropdownTableColumn } from "@/src/components/design-system/table/columns/createDropdownTableColumn";
 import { createIdTableColumn } from "@/src/components/design-system/table/columns/createIdTableColumn";
 import { createNumberTableColumn } from "@/src/components/design-system/table/columns/createNumberTableColumn";
-import { createStatusTableColumn } from "@/src/components/design-system/table/columns/createStatusTableColumn";
+import { createTableColumn } from "@/src/components/design-system/table/columns/utils/createTableColumn";
+import { Tag } from "@/src/components/design-system/Tag/Tag";
+import { ScoreTag } from "@/src/components/ScoreTag";
+import { StatusBadge } from "@/src/components/ui/StatusBadge/StatusBadge";
 import { createTagsTableColumn } from "@/src/components/design-system/table/columns/createTagsTableColumn";
 import { createTextTableColumn } from "@/src/components/design-system/table/columns/createTextTableColumn";
 import { createTokenUsageTableColumn } from "@/src/components/design-system/table/columns/createTokenUsageTableColumn";
@@ -157,6 +160,7 @@ export type TracesTableRow = {
   userId: string;
   observationCount?: bigint;
   level?: ObservationLevelType;
+  caseResultStatus?: string;
   version?: string;
   release?: string;
   id: string;
@@ -1100,22 +1104,36 @@ function TracesTableInternal({
       getValue: (value, { row }) =>
         isMetricPending(row.original.id) ? { type: "loading" } : (value ?? 0n),
     }),
-    createStatusTableColumn<TracesTableRow, ObservationLevelType>({
+    createTableColumn<TracesTableRow, ObservationLevelType>({
       accessorKey: "level",
       header: "Status",
-      size: 75,
+      headerTooltip: {
+        description:
+          "Shows the case result when the trace has exactly one. Otherwise it shows the observation level. Sorting and filtering use the observation level.",
+      },
+      size: 100,
       defaultHidden: true,
       enableHiding: true,
       enableSorting,
-      isLive: false,
-      getStatus: (level, { row }) => {
+      loadingCell: <Skeleton className="h-5 w-16 shrink-0 rounded-sm" />,
+      renderCell: (level, { row }) => {
         if (isMetricPending(row.original.id)) {
-          return { type: "loading" };
+          return <Skeleton className="h-5 w-16 shrink-0 rounded-sm" />;
         }
-        if (level) {
-          return getObservationLevelStatus(level);
+        const result = row.original.caseResultStatus;
+        if (result !== undefined) {
+          return (
+            <span className="inline-flex items-center gap-1">
+              <ScoreTag level="trace" compact />
+              <Tag text={result} />
+            </span>
+          );
         }
-        return undefined;
+        return level ? (
+          <StatusBadge type={getObservationLevelStatus(level)} isLive={false} />
+        ) : (
+          <EmptyValue />
+        );
       },
     }),
     createTextTableColumn<TracesTableRow>({
@@ -1457,6 +1475,7 @@ function TracesTableInternal({
               tokenDetails: trace.usageDetails,
               costDetails: trace.costDetails,
               scores: trace.scores,
+              caseResultStatus: trace.caseResultStatus,
               cost: {
                 inputCost: trace.calculatedInputCost ?? undefined,
                 outputCost: trace.calculatedOutputCost ?? undefined,
