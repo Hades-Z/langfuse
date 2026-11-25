@@ -7,6 +7,7 @@ import {
   type timeFilter,
   type FilterState,
 } from "@langfuse/shared";
+import { type FullEventsObservations } from "@langfuse/shared/src/server";
 import {
   getObservationsCountsFromEventsTable,
   getObservationsWithModelDataFromEventsTable,
@@ -307,10 +308,19 @@ export async function getEventListCursor(
   };
 }
 
+type EventListObservation = FullEventsObservations[number] & {
+  scores: ReturnType<typeof aggregateScores>;
+  traceScores: ReturnType<typeof aggregateScores>;
+  caseResultStatus?: string;
+};
+
 async function getEventListPage(
   params: GetObservationsListBaseParams,
   queryOpts: Parameters<typeof getObservationsWithModelDataFromEventsTable>[0],
-) {
+): Promise<{
+  observations: EventListObservation[];
+  hasMore: boolean;
+}> {
   const fetchedObservations =
     await getObservationsWithModelDataFromEventsTable(queryOpts);
   const hasMore = fetchedObservations.length > params.limit;
@@ -319,7 +329,7 @@ async function getEventListPage(
     : fetchedObservations;
 
   if (observations.length === 0) {
-    return { observations, hasMore };
+    return { observations: [], hasMore };
   }
 
   const traceIds = Array.from(

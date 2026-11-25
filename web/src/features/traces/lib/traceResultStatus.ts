@@ -48,13 +48,50 @@ export function getTraceResultStatus(
 }
 
 /**
- * The stored value, unmodified: a boolean result reads "True"/"False", a
- * category reads its own name, and a number keeps the precision it was scored
- * with. Numeric zero is a real result and must not be dropped.
+ * A pass/fail result reads as an outcome, not as the stored literal: the
+ * scorer's own spelling ("True", "PASS", "yes") says nothing a reader wants to
+ * see in a status column. An unrecognised spelling keeps its own text rather
+ * than being guessed into a verdict.
+ */
+function formatBooleanResult(score: CaseScore): string | undefined {
+  // The stored text is the score's own value; a boolean row without one has no
+  // result to show, and the numeric column must not stand in for it.
+  const text = score.stringValue?.trim();
+  if (!text) return undefined;
+  const normalized = text.toLowerCase();
+  if (POSITIVE_OUTCOMES.has(normalized)) return "成功";
+  if (NEGATIVE_OUTCOMES.has(normalized)) return "失败";
+  return text;
+}
+
+const POSITIVE_OUTCOMES = new Set([
+  "true",
+  "1",
+  "pass",
+  "passed",
+  "yes",
+  "y",
+  "真",
+]);
+const NEGATIVE_OUTCOMES = new Set([
+  "false",
+  "0",
+  "fail",
+  "failed",
+  "no",
+  "n",
+  "假",
+]);
+
+/**
+ * A category reads its own name and a number keeps the precision it was scored
+ * with. Numeric zero is a real result and must not be dropped; a boolean is
+ * formatted as an outcome instead.
  */
 function formatCaseResult(score: CaseScore): string | undefined {
   switch (score.dataType) {
     case "BOOLEAN":
+      return formatBooleanResult(score);
     case "CATEGORICAL":
       return score.stringValue?.trim() ? score.stringValue : undefined;
     case "NUMERIC":

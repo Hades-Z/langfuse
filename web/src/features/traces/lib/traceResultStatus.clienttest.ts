@@ -16,11 +16,21 @@ const score = (overrides: Partial<CaseScore> = {}) =>
   }) as CaseScore;
 
 describe("getTraceResultStatus", () => {
-  it("shows each result type exactly as scored", () => {
-    expect(getTraceResultStatus([score()])).toBe("True");
+  it("shows booleans as outcome words and other values exactly as scored", () => {
+    expect(getTraceResultStatus([score()])).toBe("成功");
     expect(
       getTraceResultStatus([score({ value: 0, stringValue: "False" })]),
-    ).toBe("False");
+    ).toBe("失败");
+    for (const stringValue of ["真", "true", "PASS", "yes", "1"]) {
+      expect(getTraceResultStatus([score({ value: 1, stringValue })])).toBe(
+        "成功",
+      );
+    }
+    for (const stringValue of ["假", "false", "FAIL", "no", "0"]) {
+      expect(getTraceResultStatus([score({ value: 0, stringValue })])).toBe(
+        "失败",
+      );
+    }
     expect(
       getTraceResultStatus([
         score({ dataType: "CATEGORICAL", stringValue: "needs_Review" }),
